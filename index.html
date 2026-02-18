@@ -1,0 +1,337 @@
+import { useState, useCallback } from "react";
+import { Upload, AlertCircle, DollarSign, Home, Activity, Brain, CheckCircle, Loader2, TrendingUp, FileText, X } from "lucide-react";
+
+const WEBHOOK_URL = "https://billbotprocessing.app.n8n.cloud/webhook/financial";
+
+const ACCEPTED_TYPES = [
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/csv",
+];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState("upload");
+  const [files, setFiles] = useState([]);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  const [agentStatus, setAgentStatus] = useState({ upload: "idle", extract: "idle", analyze: "idle", validate: "idle" });
+  const [result, setResult] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const agents = [
+    { id: "upload", label: "File Upload", icon: Upload, color: "bg-blue-500" },
+    { id: "extract", label: "Data Extraction", icon: FileText, color: "bg-indigo-500" },
+    { id: "analyze", label: "Financial Analysis", icon: Brain, color: "bg-purple-500" },
+    { id: "validate", label: "Validation", icon: CheckCircle, color: "bg-green-500" },
+  ];
+
+  const setStatus = (id, status) => setAgentStatus(prev => ({ ...prev, [id]: status }));
+
+  const addFiles = (incoming) => {
+    const valid = Array.from(incoming).filter(f =>
+      ACCEPTED_TYPES.includes(f.type) || f.name.match(/\.(pdf|xlsx|xls|csv)$/i)
+    );
+    if (!valid.length) { setError("Only PDF, Excel, or CSV files are accepted."); return; }
+    setFiles(prev => {
+      const names = new Set(prev.map(f => f.name));
+      return [...prev, ...valid.filter(f => !names.has(f.name))];
+    });
+    setError(null);
+  };
+
+  const removeFile = (name) => setFiles(prev => prev.filter(f => f.name !== name));
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault(); setDragOver(false);
+    addFiles(e.dataTransfer.files);
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!files.length) { setError("Please add at least one file."); return; }
+    setError(null);
+    setResult(null);
+    setProcessing(true);
+    setActiveTab("pipeline");
+    setAgentStatus({ upload: "idle", extract: "idle", analyze: "idle", validate: "idle" });
+
+    // Step through agent statuses visually while uploading
+    setStatus("upload", "processing");
+    const form = new FormData();
+    files.forEach(f => form.append("files", f));
+
+    let data;
+    try {
+      const res = await fetch(WEBHOOK_URL, { method: "POST", body: form });
+      setStatus("upload", "complete");
+      setStatus("extract", "processing");
+      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+      data = await res.json();
+    } catch (err) {
+      setStatus("upload", "error");
+      setError(`Webhook error: ${err.message}`);
+      setProcessing(false);
+      return;
+    }
+
+    setStatus("extract", "complete");
+    setStatus("analyze", "processing");
+    await new Promise(r => setTimeout(r, 600));
+    setStatus("analyze", "complete");
+    setStatus("validate", "processing");
+    await new Promise(r => setTimeout(r, 400));
+    setStatus("validate", "complete");
+
+    setResult(data);
+    setProcessing(false);
+    setActiveTab("dashboard");
+  };
+
+  // Safely pull a value from the parsed result
+  const get = (obj, ...keys) => {
+    for (const k of keys) {
+      if (obj && obj[k] !== undefined && obj[k] !== null) return obj[k];
+    }
+    return null;
+  };
+
+  const fmt = (v, prefix = "") => v !== null && v !== undefined ? `${prefix}${Number(v).toLocaleString()}` : "—";
+  const pct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(1)}%` : "—";
+
+  // Flatten result – webhook may return nested objects or flat
+  const bs = result?.balance_sheet ?? result?.balanceSheet ?? result?.BalanceSheet ?? {};
+  const is = result?.income_statement ?? result?.incomeStatement ?? result?.IncomeStatement ?? result?.profit_loss ?? {};
+  const meta = result?.meta ?? result?.metadata ?? result?.summary ?? {};
+  const insights = result?.insights ?? result?.ai_insights ?? result?.flags ?? [];
+  const raw = result;
+
+  const balanceItems = Object.entries(bs).filter(([, v]) => v !== null && v !== undefined && typeof v !== "object");
+  const incomeItems = Object.entries(is).filter(([, v]) => v !== null && v !== undefined && typeof v !== "object");
+  const metaItems = Object.entries(meta).filter(([, v]) => v !== null && v !== undefined && typeof v !== "object");
+
+  const hasData = balanceItems.length > 0 || incomeItems.length > 0 || metaItems.length > 0;
+
+  const labelify = (k) => k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, c => c.toUpperCase());
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="max-w-6xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-1">AI Property Financial Intelligence</h1>
+          <p className="text-gray-500">Upload balance sheets & income statements — AI extracts and analyzes the data</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          {["upload", "pipeline", "dashboard"].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              disabled={tab === "dashboard" && !result}
+              className={`px-5 py-3 font-medium capitalize transition-colors border-b-2 ${
+                activeTab === tab ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-800"
+              } disabled:opacity-30 disabled:cursor-not-allowed`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* ── UPLOAD TAB ── */}
+        {activeTab === "upload" && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
+            <div
+              onDrop={handleDrop}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onClick={() => document.getElementById("file-input").click()}
+              className={`border-2 border-dashed rounded-xl p-14 text-center cursor-pointer transition-colors ${
+                dragOver ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+              }`}
+            >
+              <Upload className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+              <p className="text-lg font-semibold text-gray-700 mb-1">Drop files here or click to browse</p>
+              <p className="text-sm text-gray-400">PDF, Excel (.xlsx / .xls), CSV</p>
+              <input
+                id="file-input" type="file" className="hidden"
+                multiple accept=".pdf,.xlsx,.xls,.csv"
+                onChange={e => addFiles(e.target.files)}
+              />
+            </div>
+
+            {/* File list */}
+            {files.length > 0 && (
+              <div className="mt-6 space-y-2">
+                {files.map(f => (
+                  <div key={f.name} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-5 h-5 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-700">{f.name}</span>
+                      <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                    <button onClick={() => removeFile(f.name)} className="text-gray-400 hover:text-red-500 transition-colors">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}
+              </div>
+            )}
+
+            <button
+              onClick={handleSubmit}
+              disabled={!files.length || processing}
+              className="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {processing ? "Processing…" : `Analyze ${files.length || ""} File${files.length !== 1 ? "s" : ""}`}
+            </button>
+          </div>
+        )}
+
+        {/* ── PIPELINE TAB ── */}
+        {activeTab === "pipeline" && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {agents.map(agent => {
+                const status = agentStatus[agent.id];
+                const Icon = agent.icon;
+                return (
+                  <div key={agent.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`${agent.color} p-2.5 rounded-lg`}>
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="font-semibold text-gray-800">{agent.label}</span>
+                      </div>
+                      {status === "processing" && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
+                      {status === "complete" && <CheckCircle className="w-5 h-5 text-green-500" />}
+                      {status === "error" && <AlertCircle className="w-5 h-5 text-red-500" />}
+                      {status === "idle" && <div className="w-5 h-5 rounded-full border-2 border-gray-200" />}
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${agent.color} transition-all duration-700 ${
+                        status === "complete" ? "w-full" : status === "processing" ? "w-2/3" : "w-0"
+                      }`} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2 capitalize">{status === "idle" ? "Waiting…" : status}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {processing && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+                <Loader2 className="w-7 h-7 animate-spin text-blue-600 mx-auto mb-2" />
+                <p className="font-medium text-blue-900">Sending files to extraction pipeline…</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-sm text-red-700 flex gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />{error}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── DASHBOARD TAB ── */}
+        {activeTab === "dashboard" && result && (
+          <div className="space-y-6">
+            {/* Summary / metadata */}
+            {metaItems.length > 0 && (
+              <Section title="Document Summary" icon={FileText}>
+                <KVGrid items={metaItems} />
+              </Section>
+            )}
+
+            {/* Balance Sheet */}
+            {balanceItems.length > 0 && (
+              <Section title="Balance Sheet" icon={Home}>
+                <KVGrid items={balanceItems} />
+              </Section>
+            )}
+
+            {/* Income Statement */}
+            {incomeItems.length > 0 && (
+              <Section title="Income Statement" icon={TrendingUp}>
+                <KVGrid items={incomeItems} />
+              </Section>
+            )}
+
+            {/* AI Insights / flags */}
+            {insights.length > 0 && (
+              <Section title="AI Insights" icon={Brain}>
+                <div className="space-y-3">
+                  {insights.map((ins, i) => {
+                    const text = typeof ins === "string" ? ins : ins.message ?? ins.description ?? ins.text ?? JSON.stringify(ins);
+                    const priority = ins.priority ?? ins.severity ?? "info";
+                    const colors = {
+                      critical: "border-red-500 bg-red-50 text-red-800",
+                      high: "border-orange-500 bg-orange-50 text-orange-800",
+                      medium: "border-yellow-500 bg-yellow-50 text-yellow-800",
+                      info: "border-blue-500 bg-blue-50 text-blue-800",
+                    };
+                    const cls = colors[priority] ?? colors.info;
+                    return (
+                      <div key={i} className={`border-l-4 rounded-r-lg px-4 py-3 text-sm ${cls}`}>
+                        {ins.title && <p className="font-semibold mb-0.5">{ins.title}</p>}
+                        <p>{text}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+
+            {/* Raw fallback if no structured keys found */}
+            {!hasData && (
+              <Section title="Raw Webhook Response" icon={FileText}>
+                <pre className="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap text-gray-700">
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </Section>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Helpers ──
+
+function Section({ title, icon: Icon, children }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <Icon className="w-5 h-5 text-blue-600" />
+        <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function KVGrid({ items }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.map(([key, value]) => (
+        <div key={key} className="bg-gray-50 rounded-xl px-4 py-3">
+          <p className="text-xs text-gray-400 mb-1">{labelify(key)}</p>
+          <p className="font-semibold text-gray-900 text-sm break-words">{String(value)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function labelify(k) {
+  return k.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, c => c.toUpperCase());
+}
