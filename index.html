@@ -1,1 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinPackage AI — HOA & Property Financial Analysis</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1e2530;
+    --surface3: #252d3a;
+    --border: #30363d;
+    --accent: #3b82f6;
+    --accent2: #6366f1;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #6e7681;
+    --radius: 10px;
+    --card-radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
 
+  /* HEADER */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: white; letter-spacing: -.5px; }
+  .logo span { color: var(--text2); font-weight: 400; font-size: 0.85rem; margin-left: 6px; }
+
+  /* MAIN */
+  main { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* UPLOAD VIEW */
+  .upload-header { text-align: center; margin-bottom: 36px; }
+  .upload-header h1 { font-size: 2rem; font-weight: 700; background: linear-gradient(135deg, #e6edf3, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; }
+  .upload-header p { color: var(--text2); font-size: 1rem; }
+
+  .drop-zone { border: 2px dashed var(--border); border-radius: var(--card-radius); padding: 60px 40px; text-align: center; cursor: pointer; transition: all .2s; background: var(--surface); position: relative; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(59,130,246,.06); }
+  .drop-icon { font-size: 2.4rem; margin-bottom: 16px; opacity: .5; }
+  .drop-zone h3 { font-size: 1.1rem; margin-bottom: 8px; }
+  .drop-zone p { color: var(--text2); font-size: 0.875rem; margin-bottom: 20px; }
+  .file-types { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .file-badge { background: var(--surface3); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; color: var(--text2); }
+  #fileInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .file-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .file-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; }
+  .file-item-left { display: flex; align-items: center; gap: 12px; }
+  .file-type-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.68rem; letter-spacing: .02em; }
+  .file-type-icon.pdf { background: rgba(239,68,68,.15); color: var(--danger); }
+  .file-type-icon.xlsx, .file-type-icon.xls { background: rgba(34,197,94,.15); color: var(--success); }
+  .file-type-icon.csv { background: rgba(59,130,246,.15); color: var(--accent); }
+  .file-name { font-size: 0.9rem; font-weight: 500; }
+  .file-size { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+  .remove-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 1rem; padding: 4px 8px; border-radius: 4px; transition: color .2s; }
+  .remove-btn:hover { color: var(--danger); }
+
+  .upload-actions { margin-top: 28px; display: flex; justify-content: center; gap: 14px; }
+  .btn { padding: 12px 28px; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; border: none; transition: all .2s; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+  .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
+
+  /* PROCESSING VIEW */
+  .processing-container { max-width: 680px; margin: 0 auto; text-align: center; }
+  .processing-header { margin-bottom: 48px; }
+  .processing-header h2 { font-size: 1.6rem; margin-bottom: 10px; }
+  .processing-header p { color: var(--text2); }
+
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+  .pipeline-step { display: flex; align-items: flex-start; gap: 20px; position: relative; }
+  .pipeline-step:not(:last-child)::after { content: ''; position: absolute; left: 19px; top: 44px; width: 2px; height: calc(100% - 4px); background: var(--border); z-index: 0; }
+  .pipeline-step.done::after { background: var(--success); }
+  .pipeline-step.active::after { background: linear-gradient(var(--accent), var(--border)); }
+
+  .step-indicator { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--text2); flex-shrink: 0; position: relative; z-index: 1; transition: all .4s; letter-spacing: .02em; }
+  .pipeline-step.active .step-indicator { border-color: var(--accent); background: rgba(59,130,246,.15); color: var(--accent); animation: spin-border 1s linear infinite; }
+  .pipeline-step.done .step-indicator { border-color: var(--success); background: rgba(34,197,94,.15); color: var(--success); }
+  @keyframes spin-border { 0%{box-shadow:0 0 0 2px rgba(59,130,246,.2)} 50%{box-shadow:0 0 0 6px rgba(59,130,246,.1)} 100%{box-shadow:0 0 0 2px rgba(59,130,246,.2)} }
+
+  .step-content { padding: 8px 0 32px; text-align: left; }
+  .step-label { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+  .step-desc { color: var(--text2); font-size: 0.875rem; }
+  .step-status { font-size: 0.75rem; margin-top: 6px; }
+  .step-status.pending { color: var(--text3); }
+  .step-status.active { color: var(--accent); }
+  .step-status.done { color: var(--success); }
+
+  /* DASHBOARD VIEW */
+  .dash-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; }
+  .dash-title h2 { font-size: 1.5rem; font-weight: 700; }
+  .dash-title p { color: var(--text2); font-size: 0.875rem; margin-top: 4px; }
+  .dash-actions { display: flex; gap: 10px; }
+
+  .doc-meta { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 20px 24px; display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 24px; }
+  .meta-item { }
+  .meta-label { font-size: 0.72rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .meta-value { font-size: 0.95rem; font-weight: 500; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 20px; }
+  .metric-card .m-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .metric-card .m-value { font-size: 1.75rem; font-weight: 700; line-height: 1; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  @media(max-width:780px){ .two-col { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; }
+  .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .panel-title { font-size: 0.9rem; font-weight: 600; }
+  .panel-body { padding: 16px 20px; }
+
+  .insight-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .insight-item:last-child { border-bottom: none; }
+  .insight-tag { display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; }
+  .tag-anomaly { background: rgba(239,68,68,.15); color: var(--danger); }
+  .tag-variance { background: rgba(245,158,11,.15); color: var(--warning); }
+  .tag-timing { background: rgba(99,102,241,.15); color: #818cf8; }
+  .tag-info { background: rgba(34,197,94,.15); color: var(--success); }
+  .insight-text { font-size: 0.875rem; line-height: 1.5; color: var(--text2); }
+
+  .data-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { background: var(--surface3); color: var(--text2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .06em; padding: 10px 14px; text-align: left; white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+  .badge-ok { background: rgba(34,197,94,.15); color: var(--success); }
+  .badge-warn { background: rgba(245,158,11,.15); color: var(--warning); }
+  .badge-err { background: rgba(239,68,68,.15); color: var(--danger); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 28px; right: 28px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; font-size: 0.875rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.5); z-index: 999; transform: translateY(80px); opacity: 0; transition: all .3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-color: var(--danger); }
+  .toast.success { border-color: var(--success); }
+
+  .empty { text-align: center; padding: 48px; color: var(--text2); }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">FP</div>
+    FinPackage AI
+    <span>HOA & Property Financial Analysis</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- UPLOAD VIEW -->
+  <div class="view active" id="view-upload">
+    <div class="upload-header">
+      <h1>Financial Package Analysis</h1>
+      <p>Upload financial statements to extract structured data and generate AI-powered insights for your HOA or property portfolio.</p>
+    </div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" multiple accept=".pdf,.xlsx,.xls,.csv">
+      <div class="drop-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4;margin:0 auto 16px;display:block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </div>
+      <h3>Drop financial documents here</h3>
+      <p>or click to browse files</p>
+      <div class="file-types">
+        <span class="file-badge">PDF</span>
+        <span class="file-badge">Excel (.xlsx)</span>
+        <span class="file-badge">CSV</span>
+        <span class="file-badge">Balance Sheets</span>
+        <span class="file-badge">Income Statements</span>
+        <span class="file-badge">Supporting Schedules</span>
+      </div>
+    </div>
+
+    <div class="file-list" id="fileList"></div>
+
+    <div class="upload-actions">
+      <button class="btn btn-ghost" id="clearBtn" style="display:none" onclick="clearFiles()">Clear All</button>
+      <button class="btn btn-primary" id="processBtn" disabled onclick="startProcessing()">Process Documents</button>
+    </div>
+  </div>
+
+  <!-- PROCESSING VIEW -->
+  <div class="view" id="view-processing">
+    <div class="processing-container">
+      <div class="processing-header">
+        <h2>Analyzing Financial Package</h2>
+        <p>Your documents are being processed through the AI analysis pipeline. This may take a moment.</p>
+      </div>
+      <div class="pipeline" id="pipeline">
+        <div class="pipeline-step" id="step-0">
+          <div class="step-indicator">01</div>
+          <div class="step-content">
+            <div class="step-label">Document Intake</div>
+            <div class="step-desc">Receiving and validating uploaded files, extracting metadata and document structure.</div>
+            <div class="step-status pending" id="step-0-status">Pending</div>
+          </div>
+        </div>
+        <div class="pipeline-step" id="step-1">
+          <div class="step-indicator">02</div>
+          <div class="step-content">
+            <div class="step-label">Data Extraction</div>
+            <div class="step-desc">Parsing financial fields, tables, and structured data from document contents.</div>
+            <div class="step-status pending" id="step-1-status">Pending</div>
+          </div>
+        </div>
+        <div class="pipeline-step" id="step-2">
+          <div class="step-indicator">03</div>
+          <div class="step-content">
+            <div class="step-label">Financial Analysis</div>
+            <div class="step-desc">Running AI-powered analysis to detect variances, anomalies, and budget deviations.</div>
+            <div class="step-status pending" id="step-2-status">Pending</div>
+          </div>
+        </div>
+        <div class="pipeline-step" id="step-3">
+          <div class="step-indicator">04</div>
+          <div class="step-content">
+            <div class="step-label">Validation & Output</div>
+            <div class="step-desc">Normalizing extracted data, validating integrity, and generating structured report.</div>
+            <div class="step-status pending" id="step-3-status">Pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div class="view" id="view-dashboard">
+    <div class="dash-header">
+      <div class="dash-title">
+        <h2 id="dash-title">Financial Analysis Report</h2>
+        <p id="dash-subtitle">AI-extracted insights from uploaded financial package</p>
+      </div>
+      <div class="dash-actions">
+        <button class="btn btn-ghost" onclick="resetToUpload()">New Upload</button>
+      </div>
+    </div>
+
+    <div class="doc-meta" id="docMeta"></div>
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">AI-Generated Insights</div>
+          <span id="insight-count" style="font-size:.75rem;color:var(--text2)"></span>
+        </div>
+        <div class="panel-body" id="insightsList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Extracted Financial Data</div>
+        </div>
+        <div class="panel-body" style="padding:0;">
+          <div class="data-table-wrap">
+            <table id="dataTable">
+              <thead><tr><th>Field</th><th>Value</th><th>Status</th></tr></thead>
+              <tbody id="dataTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const WEBHOOK = 'https://billbotprocessing.app.n8n.cloud/webhook/financial';
+let uploadedFiles = [];
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+function addFiles(files) {
+  const allowed = ['pdf','xlsx','xls','csv'];
+  Array.from(files).forEach(f => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!allowed.includes(ext)) { showToast('Unsupported file: ' + f.name, 'error'); return; }
+    if (uploadedFiles.find(u => u.name === f.name)) return;
+    uploadedFiles.push(f);
+  });
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  const processBtn = document.getElementById('processBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  list.innerHTML = uploadedFiles.map((f, i) => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    const size = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' : (f.size/1024).toFixed(0)+' KB';
+    return `<div class="file-item">
+      <div class="file-item-left">
+        <div class="file-type-icon ${ext}">${ext.toUpperCase()}</div>
+        <div><div class="file-name">${f.name}</div><div class="file-size">${size}</div></div>
+      </div>
+      <button class="remove-btn" onclick="removeFile(${i})" title="Remove">&#x2715;</button>
+    </div>`;
+  }).join('');
+  processBtn.disabled = uploadedFiles.length === 0;
+  clearBtn.style.display = uploadedFiles.length > 0 ? 'inline-flex' : 'none';
+}
+
+function removeFile(i) { uploadedFiles.splice(i, 1); renderFileList(); }
+function clearFiles() { uploadedFiles = []; renderFileList(); }
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+}
+
+async function startProcessing() {
+  showView('processing');
+  resetPipeline();
+
+  const formData = new FormData();
+  uploadedFiles.forEach((f, i) => formData.append('file_' + i, f));
+  formData.append('file_count', uploadedFiles.length);
+  formData.append('file_names', uploadedFiles.map(f => f.name).join(','));
+
+  const stepPromise = animateSteps();
+  let responseData = null;
+  try {
+    const res = await fetch(WEBHOOK, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error('Webhook returned ' + res.status);
+    responseData = await res.json();
+  } catch (err) {
+    console.warn('Webhook error:', err);
+    responseData = getDemoData();
+    showToast('Using demo data — webhook unreachable', 'error');
+  }
+
+  await stepPromise;
+  renderDashboard(responseData);
+  showView('dashboard');
+}
+
+function resetPipeline() {
+  for (let i = 0; i < 4; i++) {
+    const step = document.getElementById('step-' + i);
+    const status = document.getElementById('step-' + i + '-status');
+    step.classList.remove('active', 'done');
+    status.className = 'step-status pending';
+    status.textContent = 'Pending';
+  }
+}
+
+function animateSteps() {
+  const durations = [1800, 2400, 3000, 1400];
+  const labels = ['Receiving files...', 'Parsing documents...', 'Running AI analysis...', 'Finalizing report...'];
+  let p = Promise.resolve();
+  durations.forEach((d, i) => {
+    p = p.then(() => new Promise(res => {
+      const step = document.getElementById('step-' + i);
+      const status = document.getElementById('step-' + i + '-status');
+      step.classList.add('active');
+      status.className = 'step-status active';
+      status.textContent = labels[i];
+      setTimeout(() => {
+        step.classList.remove('active');
+        step.classList.add('done');
+        status.className = 'step-status done';
+        status.textContent = 'Complete';
+        res();
+      }, d);
+    }));
+  });
+  return p;
+}
+
+function renderDashboard(data) {
+  const meta = data.metadata || data.document || data;
+  const metrics = data.metrics || data.financials || {};
+  const insights = data.insights || data.flags || data.analysis || [];
+  const fields = data.fields || data.extracted_fields || data.data || [];
+
+  const assoc = meta.association_name || meta.community || meta.entity || uploadedFiles[0]?.name?.replace(/\.[^.]+$/,'') || 'Financial Package';
+  const period = meta.period || meta.reporting_period || meta.date || 'Reporting Period';
+  document.getElementById('dash-title').textContent = assoc;
+  document.getElementById('dash-subtitle').textContent = `Analysis for ${period} · Processed ${new Date().toLocaleDateString()}`;
+
+  const metaItems = [
+    { label: 'Association / Entity', value: assoc },
+    { label: 'Reporting Period', value: period },
+    { label: 'Document Type', value: meta.document_type || meta.type || 'Financial Package' },
+    { label: 'Files Processed', value: uploadedFiles.length },
+    { label: 'Processed At', value: new Date().toLocaleTimeString() },
+  ];
+  document.getElementById('docMeta').innerHTML = metaItems.map(m =>
+    `<div class="meta-item"><div class="meta-label">${m.label}</div><div class="meta-value">${m.value}</div></div>`
+  ).join('');
+
+  const metricDefs = [
+    { label: 'Total Income', keys: ['total_income','income','total_revenue','revenue'], color: '#22c55e' },
+    { label: 'Total Expenses', keys: ['total_expenses','expenses','total_costs','costs'], color: '#ef4444' },
+    { label: 'Net Operating Income', keys: ['net_operating_income','noi','net_income','operating_income'], color: '#3b82f6' },
+    { label: 'Reserve Balance', keys: ['reserve_balance','reserves','reserve_fund'], color: '#f59e0b' },
+    { label: 'Operating Balance', keys: ['operating_balance','operating_fund','cash_balance','cash'], color: '#6366f1' },
+    { label: 'Budget Variance', keys: ['budget_variance','variance'], color: '#8b5cf6' },
+  ];
+
+  const all = { ...metrics, ...meta };
+  const grid = document.getElementById('metricsGrid');
+  grid.innerHTML = '';
+  let shown = 0;
+  metricDefs.forEach(def => {
+    let val = null;
+    for (const k of def.keys) { if (all[k] !== undefined) { val = all[k]; break; } }
+    if (val === null) return;
+    shown++;
+    const num = parseFloat(String(val).replace(/[^0-9.-]/g,''));
+    const formatted = '$' + Math.abs(num).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const negative = num < 0;
+    grid.innerHTML += `<div class="metric-card">
+      <div class="m-label">${def.label}</div>
+      <div class="m-value" style="color:${negative ? '#ef4444' : def.color}">${negative ? '-' : ''}${formatted}</div>
+    </div>`;
+  });
+
+  if (shown === 0 && typeof metrics === 'object') {
+    Object.entries(metrics).slice(0, 6).forEach(([k, v]) => {
+      const label = k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      grid.innerHTML += `<div class="metric-card">
+        <div class="m-label">${label}</div>
+        <div class="m-value" style="color:var(--accent)">${typeof v === 'number' ? '$'+v.toLocaleString() : v}</div>
+      </div>`;
+    });
+  }
+
+  const insightsList = document.getElementById('insightsList');
+  const arr = Array.isArray(insights) ? insights : Object.values(insights);
+  document.getElementById('insight-count').textContent = arr.length + ' item' + (arr.length !== 1 ? 's' : '');
+  if (arr.length === 0) {
+    insightsList.innerHTML = `<div class="empty"><p>No anomalies or flags detected.</p></div>`;
+  } else {
+    insightsList.innerHTML = arr.map(item => {
+      const text = typeof item === 'string' ? item : (item.message || item.description || item.text || JSON.stringify(item));
+      const type = typeof item === 'object' ? (item.type || item.category || item.severity || 'info') : 'info';
+      const tagClass = type.toLowerCase().includes('anomal') ? 'tag-anomaly'
+                     : type.toLowerCase().includes('varian') ? 'tag-variance'
+                     : type.toLowerCase().includes('tim') ? 'tag-timing'
+                     : 'tag-info';
+      const tagLabel = type.charAt(0).toUpperCase() + type.slice(1);
+      return `<div class="insight-item"><span class="insight-tag ${tagClass}">${tagLabel}</span><div class="insight-text">${text}</div></div>`;
+    }).join('');
+  }
+
+  const tbody = document.getElementById('dataTableBody');
+  const rowArr = Array.isArray(fields) ? fields : Object.entries(fields).map(([k,v]) => ({ field: k, value: v, status: 'ok' }));
+  if (rowArr.length === 0) {
+    const fallback = Object.entries(data).filter(([k,v]) => typeof v !== 'object').map(([k,v]) => ({ field: k, value: v, status: 'ok' }));
+    tbody.innerHTML = fallback.map(r => {
+      const label = r.field.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      return `<tr><td>${label}</td><td>${r.value}</td><td><span class="badge badge-ok">Under</span></td></tr>`;
+    }).join('') || `<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:20px;">No field-level data returned</td></tr>`;
+  } else {
+    tbody.innerHTML = rowArr.map(r => {
+      const field = r.field || r.name || r.key || '';
+      const val = r.value !== undefined ? r.value : r.amount || '';
+      const status = (r.status || r.flag || 'ok').toLowerCase();
+      const badgeCls = status === 'ok' || status === 'valid' ? 'badge-ok' : status === 'warning' || status === 'warn' ? 'badge-warn' : 'badge-err';
+      const badgeLabel = status === 'ok' || status === 'valid' ? 'Under' : status === 'warning' || status === 'warn' ? 'Over' : 'Over';
+      const label = field.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+      return `<tr><td>${label}</td><td>${typeof val === 'number' ? '$'+val.toLocaleString() : val}</td><td><span class="badge ${badgeCls}">${badgeLabel}</span></td></tr>`;
+    }).join('');
+  }
+}
+
+function getDemoData() {
+  return {
+    metadata: {
+      association_name: 'Lakewood Commons HOA',
+      period: 'October 2025',
+      document_type: 'Monthly Financial Package'
+    },
+    metrics: {
+      total_income: 87450.00,
+      total_expenses: 74218.33,
+      net_operating_income: 13231.67,
+      reserve_balance: 412800.00,
+      operating_balance: 54320.10,
+      budget_variance: -3850.45
+    },
+    insights: [
+      { type: 'Variance', message: 'Landscaping expenses are 22% over budget YTD ($14,200 actual vs $11,600 budgeted). Review vendor contract terms.' },
+      { type: 'Anomaly', message: 'Utility costs spiked 31% in October vs September average. Possible meter error or billing cycle overlap — recommend verification.' },
+      { type: 'Timing', message: 'Insurance premium payment recorded in October does not align with expected annual renewal cycle (typically July). Confirm billing period.' },
+      { type: 'Info', message: 'Reserve fund is at 78% of target funding level per the 30-year reserve study. On track with contribution schedule.' },
+      { type: 'Variance', message: 'Delinquent assessment receivables increased by $4,100 from prior month. Two units are 90+ days past due.' }
+    ],
+    fields: [
+      { field: 'assessment_income', value: '$82,000.00', status: 'valid' },
+      { field: 'late_fees', value: '$1,450.00', status: 'valid' },
+      { field: 'interest_income', value: '$2,100.00', status: 'valid' },
+      { field: 'other_income', value: '$1,900.00', status: 'warning' },
+      { field: 'management_fees', value: '$6,500.00', status: 'valid' },
+      { field: 'landscaping', value: '$14,200.00', status: 'warning' },
+      { field: 'utilities', value: '$9,318.33', status: 'error' },
+      { field: 'insurance', value: '$22,400.00', status: 'warning' },
+      { field: 'repairs_maintenance', value: '$8,900.00', status: 'valid' },
+      { field: 'administrative', value: '$2,900.00', status: 'valid' },
+      { field: 'reserve_contribution', value: '$10,000.00', status: 'valid' },
+    ]
+  };
+}
+
+function resetToUpload() {
+  uploadedFiles = [];
+  renderFileList();
+  fileInput.value = '';
+  showView('upload');
+}
+
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
