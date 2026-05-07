@@ -139,6 +139,7 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
   .badge-ok { background: rgba(34,197,94,.15); color: var(--success); }
   .badge-warn { background: rgba(245,158,11,.15); color: var(--warning); }
+  .badge-timing { background: rgba(59,130,246,.15); color: var(--accent); }
   .badge-err { background: rgba(239,68,68,.15); color: var(--danger); }
 
   /* TOAST */
@@ -477,15 +478,15 @@ function renderDashboard(data) {
     const fallback = Object.entries(data).filter(([k,v]) => typeof v !== 'object').map(([k,v]) => ({ field: k, value: v, status: 'ok' }));
     tbody.innerHTML = fallback.map(r => {
       const label = r.field.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-      return `<tr><td>${label}</td><td>${r.value}</td><td><span class="badge badge-ok">Under</span></td></tr>`;
+      return `<tr><td>${label}</td><td>${r.value}</td><td><span class="badge badge-ok">On Target</span></td></tr>`;
     }).join('') || `<tr><td colspan="3" style="text-align:center;color:var(--text2);padding:20px;">No field-level data returned</td></tr>`;
   } else {
     tbody.innerHTML = rowArr.map(r => {
       const field = r.field || r.name || r.key || '';
       const val = r.value !== undefined ? r.value : r.amount || '';
       const status = (r.status || r.flag || 'ok').toLowerCase();
-      const badgeCls = status === 'ok' || status === 'valid' ? 'badge-ok' : status === 'warning' || status === 'warn' ? 'badge-warn' : 'badge-err';
-      const badgeLabel = status === 'ok' || status === 'valid' ? 'Under' : status === 'warning' || status === 'warn' ? 'Over' : 'Over';
+      const badgeCls = status === 'ok' ? 'badge-warn' : status === 'valid' ? 'badge-ok' : status === 'error' ? 'badge-err' : 'badge-timing';
+      const badgeLabel = status === 'ok' ? 'Under Budget' : status === 'valid' ? 'On Target' : status === 'error' ? 'Over Budget' : 'Timing Variance';
       const label = field.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
       return `<tr><td>${label}</td><td>${typeof val === 'number' ? '$'+val.toLocaleString() : val}</td><td><span class="badge ${badgeCls}">${badgeLabel}</span></td></tr>`;
     }).join('');
